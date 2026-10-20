@@ -1,0 +1,109 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Key Tips —— SPT 5.0BE 移植版（纯客户端）
+    ==================================================================
+    原作：HiddenCirno/KeyTips 1.1.0（MIT，github.com/HiddenCirno/KeyTips，
+    Forge 页面 sp-mod.com/mod/2798/key-tips），为 SPT 4.1.x（Mono / netstandard2.1 /
+    BepInEx 5 BaseUnityPlugin）构建。本移植为 IL2CPP / BepInEx 6 版本，
+    功能范围与上游一致：门/刷卡门被锁时提示需要的钥匙，用钥匙开门时提示剩余次数，
+    钥匙用尽时告警。GUID 保持上游不变。
+
+    移植核验（2026-10-20，全部在 5.0BE 的 BepInEx\interop\Assembly-CSharp.dll 静态确认）：
+      InteractionContextHelper.GetAvailableActions(GamePlayerOwner, WorldInteractiveObject) /
+      (GamePlayerOwner, KeycardDoor, Boolean) 两个重载均在（OpenSesame BE 打的是同样目标）；
+      EFT.UI.AvailableInteractionState.Error /
+      WorldInteractiveObject.DoorState + KeyId 字段 + UnlockOperation(KeyComponent, Player, WorldInteractiveObject) /
+      KeycardDoor : Door : WorldInteractiveObject 层级未变 /
+      Diz.LanguageExtensions.Option`1（5.0BE 为 ValueType）.Failed/.Value +
+      EFT.Interactive.UnlockResult.Succeed /
+      KeyComponent.NumberOfUsages + Template : IKeyComponentTemplate(KeyId, MaximumNumberOfUsage) /
+      Player.IsYourPlayer + Profile / GameWorld 均在。
+  -->
+
+  <PropertyGroup>
+    <!-- SPT 5.0BE 客户端是 IL2CPP + BepInEx 6，Il2CppInterop.Runtime 按 net10 编译，插件必须同框架。
+         构建需 .NET 10 SDK（本机在 %USERPROFILE%\.dotnet，不在 PATH 上）。 -->
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>KeyTips</RootNamespace>
+    <AssemblyName>KeyTips.Client</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
+    <Product>Key Tips 1.1.0 (SPT 5.0BE port)</Product>
+    <Company>HiddenCirno / SPT 5.0BE port</Company>
+    <Description>Shows which key a locked door needs, and how many uses the key has left.</Description>
+    <Copyright>MIT License</Copyright>
+
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <DebugType>none</DebugType>
+    <NoWarn>$(NoWarn);CS0618;CS0612</NoWarn>
+
+    <!-- 5.0BE 安装根目录：优先 -p:GameRoot=...，其次环境变量 EFT5_ROOT。
+         仓库里不写死本机路径；两者都没给时下面的校验目标会直接告诉你怎么传。 -->
+    <GameRoot Condition="'$(GameRoot)' == '' and '$(EFT5_ROOT)' != ''">$(EFT5_ROOT)</GameRoot>
+    <GameRoot Condition="'$(GameRoot)' == ''">$(MSBuildThisFileDirectory)not-set</GameRoot>
+    <BepInExCore>$(GameRoot)\BepInEx\core</BepInExCore>
+    <Interop>$(GameRoot)\BepInEx\interop</Interop>
+    <PluginDeployDir>$(GameRoot)\BepInEx\plugins\KeyTips</PluginDeployDir>
+  </PropertyGroup>
+
+  <Target Name="ValidateGameRoot" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(BepInExCore)\BepInEx.Unity.IL2CPP.dll')"
+           Text="GameRoot ('$(GameRoot)') is not an SPT 5.0BE install root. Pass -p:GameRoot=&lt;SPT 5.0BE 根目录&gt; or set the EFT5_ROOT environment variable (it must contain BepInEx\core\BepInEx.Unity.IL2CPP.dll)." />
+    <Error Condition="!Exists('$(Interop)\Assembly-CSharp.dll')"
+           Text="No BepInEx\interop\Assembly-CSharp.dll under GameRoot. Start the game through the SPT Launcher once so the interop assemblies are generated." />
+  </Target>
+
+  <ItemGroup>
+    <!-- BepInEx 6 (IL2CPP) -->
+    <Reference Include="BepInEx.Core">
+      <HintPath>$(BepInExCore)\BepInEx.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="BepInEx.Unity.IL2CPP">
+      <HintPath>$(BepInExCore)\BepInEx.Unity.IL2CPP.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(BepInExCore)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(BepInExCore)\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+
+    <!-- IL2CPP interop (5.0BE) -->
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>$(Interop)\Il2Cppmscorlib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(Interop)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(Interop)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="locales\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- 可选：dotnet build -c Release -p:DeployToSPT=true -->
+  <Target Name="DeployToSPT" AfterTargets="Build" Condition="'$(DeployToSPT)' == 'true'">
+    <MakeDir Directories="$(PluginDeployDir)\locales" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDeployDir)" />
+    <Copy SourceFiles="@(None)" DestinationFolder="$(PluginDeployDir)\locales" />
+    <Message Importance="high" Text="Deployed $(TargetFileName) + locales to $(PluginDeployDir)" />
+  </Target>
+
+</Project>

@@ -1,0 +1,11 @@
+{
+  "Language": "简体中文",
+  "Translate": {
+    "door_locked": "锁上了（需要 {0}）",
+    "keycard_door_locked": "已锁定（需要 {0}）",
+    "key_and_keycard_usage": "(剩余{0}/{1})",
+    "key_and_keycard_using": "使用了 {0} {1}",
+    "teammate_key_and_keycard_using": "{0} 使用了 {1} {2}",
+    "key_and_keycard_broken": "{0} 的所有可用次数已耗尽"
+  }
+}

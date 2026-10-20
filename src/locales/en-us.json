@@ -1,0 +1,11 @@
+{
+  "Language": "English",
+  "Translate": {
+    "door_locked": "Locked (Needs {0})",
+    "keycard_door_locked": "Access Denied (Needs {0})",
+    "key_and_keycard_usage": "({0}/{1} remaining)",
+    "key_and_keycard_using": "Used {0} {1}",
+    "teammate_key_and_keycard_using": "Player {0} Used {1} {2}",
+    "key_and_keycard_broken": "{0} has run out of uses"
+  }
+}
